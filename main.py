@@ -15,7 +15,7 @@ class Message(BaseModel):
 
 # Загружаем пользователей
 with open("users.json", "r", encoding="utf-8") as file:
-    users = json.load(file)
+    users = json.load(file)["users"]
 
 # Проверяем, что данные в users корректные
 if not isinstance(users, list) or not all(isinstance(u, dict) for u in users):
