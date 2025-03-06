@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 
 # Настраиваем логирование
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(name)
 
 app = FastAPI()
 
@@ -12,7 +12,9 @@ app = FastAPI()
 try:
     with open("users.json", "r", encoding="utf-8") as f:
         users = json.load(f)
-except Exception as e:
+        if not isinstance(users, list):
+            raise ValueError("Файл users.json должен содержать список пользователей.")
+except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
     logger.error(f"Ошибка загрузки users.json: {e}")
     users = []
 
@@ -20,14 +22,19 @@ except Exception as e:
 try:
     with open("messages.json", "r", encoding="utf-8") as f:
         messages = json.load(f)
-except Exception as e:
-    logger.warning(f"Файл messages.json не найден, создаём пустой.")
+        if not isinstance(messages, dict):
+            raise ValueError("Файл messages.json должен содержать словарь сообщений.")
+except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
+    logger.warning(f"Ошибка загрузки messages.json: {e}. Создаём пустой.")
     messages = {}
 
 @app.get("/search")
 def search_user(name: str):
     """Поиск пользователей по имени"""
-    results = [user for user in users if name.lower() in user["name"].lower()]
+    if not name:
+        raise HTTPException(status_code=400, detail="Имя не должно быть пустым")
+    
+    results = [user for user in users if "name" in user and name.lower() in user["name"].lower()]
     return results
 
 @app.get("/messages")
