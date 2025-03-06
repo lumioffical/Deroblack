@@ -4,16 +4,17 @@ from fastapi import FastAPI, HTTPException
 
 # Настраиваем логирование
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(name)
 
 app = FastAPI()
 
 # Загружаем пользователей из файла
 try:
     with open("users.json", "r", encoding="utf-8") as f:
-        users = json.load(f)
-        if not isinstance(users, list):  # Должен быть список пользователей
-            raise ValueError("users.json должен содержать список пользователей")
+        data = json.load(f)
+        users = data.get("users", [])  # Достаём список пользователей
+        if not isinstance(users, list):
+            raise ValueError("users.json должен содержать ключ 'users' со списком пользователей")
 except Exception as e:
     logger.error(f"Ошибка загрузки users.json: {e}")
     users = []
