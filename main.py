@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 # Настраиваем логирование
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(name)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
