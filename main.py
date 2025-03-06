@@ -1,48 +1,59 @@
 import json
 import logging
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
 
-# Настройка логирования
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Настраиваем логирование
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logger = logging.getLogger(name)
 
 app = FastAPI()
 
-# Попытка загрузить users.json
+# Загружаем пользователей из файла
 try:
-    with open("users.json", "r", encoding="utf-8") as file:
-        data = json.load(file)
-
-    if not isinstance(data, dict) or "users" not in data or not isinstance(data["users"], list):
-        raise ValueError("Файл users.json должен содержать ключ 'users' со списком пользователей.")
-
-    users = data["users"]
-    logger.info("Файл users.json успешно загружен.")
-
+    with open("users.json", "r", encoding="utf-8") as f:
+        users = json.load(f)
 except Exception as e:
     logger.error(f"Ошибка загрузки users.json: {e}")
     users = []
 
-# Модель запроса для валидации входных данных
-class LoginRequest(BaseModel):
-    login: str
-    password: str
+# Загружаем сообщения
+try:
+    with open("messages.json", "r", encoding="utf-8") as f:
+        messages = json.load(f)
+except Exception as e:
+    logger.warning(f"Файл messages.json не найден, создаём пустой.")
+    messages = {}
 
-# Функция проверки логина и пароля
-def login_user(input_login: str, input_password: str) -> bool:
-    for user in users:
-        if isinstance(user, dict) and user.get("login") == input_login and user.get("password") == input_password:
-            return True
-    return False
+@app.get("/search")
+def search_user(name: str):
+    """Поиск пользователей по имени"""
+    results = [user for user in users if name.lower() in user["name"].lower()]
+    return results
 
-@app.post("/login")
-async def login(request: LoginRequest):
-    logger.info(f"Попытка входа: login={request.login}, password={request.password}")
+@app.get("/messages")
+def get_messages(user: int):
+    """Получение сообщений пользователя"""
+    return messages.get(str(user), [])
 
-    if login_user(request.login, request.password):
-        logger.info(f"Успешный вход: {request.login}")
-        return {"message": "Success"}
+@app.post("/send")
+def send_message(data: dict):
+    """Отправка сообщения"""
+    user_id = str(data.get("to"))
+    text = data.get("text")
 
-    logger.warning(f"Неудачная попытка входа: {request.login}")
-    raise HTTPException(status_code=401, detail="Unauthorized")
+    if not user_id or not text:
+        raise HTTPException(status_code=400, detail="Некорректные данные")
+
+    if user_id not in messages:
+        messages[user_id] = []
+
+    messages[user_id].append({"text": text, "sender": "them"})
+
+    # Сохраняем в файл
+    try:
+        with open("messages.json", "w", encoding="utf-8") as f:
+            json.dump(messages, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error(f"Ошибка сохранения messages.json: {e}")
+
+    return {"status": "ok"}
