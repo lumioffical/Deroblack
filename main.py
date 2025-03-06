@@ -1,48 +1,48 @@
+import json
+import logging
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import json
+
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(name)
 
 app = FastAPI()
 
-class User(BaseModel):
+# Попытка загрузить users.json
+try:
+    with open("users.json", "r", encoding="utf-8") as file:
+        data = json.load(file)
+
+    if not isinstance(data, dict) or "users" not in data or not isinstance(data["users"], list):
+        raise ValueError("Файл users.json должен содержать ключ 'users' со списком пользователей.")
+
+    users = data["users"]
+    logger.info("Файл users.json успешно загружен.")
+
+except Exception as e:
+    logger.error(f"Ошибка загрузки users.json: {e}")
+    users = []
+
+# Модель запроса для валидации входных данных
+class LoginRequest(BaseModel):
     login: str
     password: str
 
-class Message(BaseModel):
-    sender: str
-    receiver: str
-    message: str
-
-# Загружаем пользователей
-with open("users.json", "r", encoding="utf-8") as file:
-    users = json.load(file)["users"]
-
-# Проверяем, что данные в users корректные
-if not isinstance(users, list) or not all(isinstance(u, dict) for u in users):
-    raise ValueError("Файл users.json должен содержать список словарей.")
-
-messages = []
+# Функция проверки логина и пароля
+def login_user(input_login: str, input_password: str) -> bool:
+    for user in users:
+        if isinstance(user, dict) and user.get("login") == input_login and user.get("password") == input_password:
+            return True
+    return False
 
 @app.post("/login")
-def login(user: User):
-    for u in users:
-        if isinstance(u, dict) and u.get("login") == user.login and u.get("password") == user.password:
-            return {"message": "Успешный вход"}
-    raise HTTPException(status_code=401, detail="Неверный логин или пароль")
+async def login(request: LoginRequest):
+    logger.info(f"Попытка входа: login={request.login}, password={request.password}")
 
-@app.post("/send")
-def send_message(msg: Message):
-    if not any(u.get("login") == msg.sender for u in users):
-        raise HTTPException(status_code=404, detail="Отправитель не найден")
-    if not any(u.get("login") == msg.receiver for u in users):
-        raise HTTPException(status_code=404, detail="Получатель не найден")
+    if login_user(request.login, request.password):
+        logger.info(f"Успешный вход: {request.login}")
+        return {"message": "Success"}
 
-    messages.append(msg.dict())
-    return {"message": "Сообщение отправлено"}
-
-@app.get("/messages/{user}")
-def get_messages(user: str):
-    if not any(u.get("login") == user for u in users):
-        raise HTTPException(status_code=404, detail="Пользователь не найден")
-
-    return [msg for msg in messages if msg["receiver"] == user]
+    logger.warning(f"Неудачная попытка входа: {request.login}")
+    raise HTTPException(status_code=401, detail="Unauthorized")
