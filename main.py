@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 
 # Настраиваем логирование
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(name)
 
 app = FastAPI()
 
@@ -12,9 +12,9 @@ app = FastAPI()
 try:
     with open("users.json", "r", encoding="utf-8") as f:
         users = json.load(f)
-        if not isinstance(users, list):
-            raise ValueError("Файл users.json должен содержать список пользователей.")
-except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
+        if not isinstance(users, list):  # Должен быть список пользователей
+            raise ValueError("users.json должен содержать список пользователей")
+except Exception as e:
     logger.error(f"Ошибка загрузки users.json: {e}")
     users = []
 
@@ -22,25 +22,25 @@ except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
 try:
     with open("messages.json", "r", encoding="utf-8") as f:
         messages = json.load(f)
-        if not isinstance(messages, dict):
-            raise ValueError("Файл messages.json должен содержать словарь сообщений.")
-except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
-    logger.warning(f"Ошибка загрузки messages.json: {e}. Создаём пустой.")
+        if not isinstance(messages, dict):  # Должен быть словарь
+            raise ValueError("messages.json должен быть словарём")
+except Exception as e:
+    logger.warning(f"Ошибка загрузки messages.json: {e}. Создаём пустой файл.")
     messages = {}
 
+    with open("messages.json", "w", encoding="utf-8") as f:
+        json.dump(messages, f, ensure_ascii=False, indent=2)
+
 @app.get("/search")
-def search_user(name: str):
-    """Поиск пользователей по имени"""
-    if not name:
-        raise HTTPException(status_code=400, detail="Имя не должно быть пустым")
-    
-    results = [user for user in users if "name" in user and name.lower() in user["name"].lower()]
+def search_user(login: str):
+    """Поиск пользователей по логину"""
+    results = [user for user in users if login.lower() in user["login"].lower()]
     return results
 
 @app.get("/messages")
-def get_messages(user: int):
+def get_messages(user: str):
     """Получение сообщений пользователя"""
-    return messages.get(str(user), [])
+    return messages.get(user, [])
 
 @app.post("/send")
 def send_message(data: dict):
